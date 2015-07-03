@@ -4,6 +4,8 @@ app = express()
 bodyParser = require('body-parser')
 iptables = require('./iptables')
 
+exec = require('child_process').exec
+
 ssid = process.env.SSID or 'ResinAP'
 passphrase = process.env.PASSPHRASE or '12345678'
 
@@ -13,6 +15,24 @@ server = null
 ssidList = null
 
 os = require('os')
+
+openHotspot = (ssid, passphrase, cb) ->
+	# Reload bcm4334x with op_mode=2, the trick for 
+	# tethering to work on Edison
+	exec "modprobe -r bcm4334x", (err) ->
+		return cb(err) if err?
+		exec "modprobe bcm4334x op_mode=2", (err) ->
+			return cb(err) if err?
+			wifi.openHotspot ssid, passphrase, (err) ->
+				return cb(err) if err?
+				# Add wlan0 to the bridge because connman has a bug.
+				exec "brctl addif tether wlan0", cb
+
+closeHotspot = (err) ->
+	wifi.closeHotspot (err) ->
+		exec "modprobe -r bcm4334x", (err) ->
+			return cb(err) if err?
+			exec "modprobe bcm4334x", cb
 
 iptablesRules = ->
 	myIP = os.networkInterfaces().tether[0].address
@@ -39,14 +59,14 @@ startServer = (wifi) ->
 	wifi.getNetworks (err, list) ->
 		throw err if err?
 		ssidList = list
-		wifi.openHotspot ssid, passphrase, (err) ->
+		openHotspot ssid, passphrase, (err) ->
 			throw err if err?
 			console.log("Hotspot enabled")
-			#iptables.appendMany iptablesRules(), (err) ->
-				#throw err if err?
-			console.log("Captive portal enabled")
-			server = app.listen port, ->
-				console.log("Server listening")
+			iptables.appendMany iptablesRules(), (err) ->
+				throw err if err?
+				console.log("Captive portal enabled")
+				server = app.listen port, ->
+					console.log("Server listening")
 
 console.log("Starting node connman app")
 connman.init (err) ->
@@ -65,14 +85,16 @@ connman.init (err) ->
 				console.log("Selected " + req.body.ssid)
 				res.send('OK')
 				server.close ->
-					#iptables.deleteMany iptablesRules(), (err) ->
-						#throw err if err?
-					console.log("Server closed and captive portal disabled")
-					wifi.joinWithAgent req.body.ssid, req.body.passphrase, (err) ->
-						console.log(err) if err
-						return startServer(wifi) if err
-						console.log("Joined! Exiting.")
-						process.exit()
+					iptables.deleteMany iptablesRules(), (err) ->
+						throw err if err?
+						closeHotspot (err) ->
+							throw err if err?
+							console.log("Server closed and captive portal disabled")
+							wifi.joinWithAgent req.body.ssid, req.body.passphrase, (err) ->
+								console.log(err) if err
+								return startServer(wifi) if err
+								console.log("Joined! Exiting.")
+								process.exit()
 
 		if !properties.connected
 			console.log("Trying to join wifi")
@@ -81,6 +103,7 @@ connman.init (err) ->
 					startServer(wifi)
 		else
 			console.log("Already connected")
+			process.exit()
 					
 
 							
