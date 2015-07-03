@@ -16,24 +16,6 @@ ssidList = null
 
 os = require('os')
 
-openHotspot = (ssid, passphrase, cb) ->
-	# Reload bcm4334x with op_mode=2, the trick for 
-	# tethering to work on Edison
-	exec "modprobe -r bcm4334x", (err) ->
-		return cb(err) if err?
-		exec "modprobe bcm4334x op_mode=2", (err) ->
-			return cb(err) if err?
-			wifi.openHotspot ssid, passphrase, (err) ->
-				return cb(err) if err?
-				# Add wlan0 to the bridge because connman has a bug.
-				exec "brctl addif tether wlan0", cb
-
-closeHotspot = (err) ->
-	wifi.closeHotspot (err) ->
-		exec "modprobe -r bcm4334x", (err) ->
-			return cb(err) if err?
-			exec "modprobe bcm4334x", cb
-
 iptablesRules = ->
 	myIP = os.networkInterfaces().tether[0].address
 	return [
@@ -73,6 +55,24 @@ connman.init (err) ->
 	throw err if err?
 	console.log("Connman initialized")
 	connman.initWiFi (err, wifi, properties) ->
+		openHotspot = (ssid, passphrase, cb) ->
+			# Reload bcm4334x with op_mode=2, the trick for 
+			# tethering to work on Edison
+			exec "modprobe -r bcm4334x", (err) ->
+				return cb(err) if err?
+				exec "modprobe bcm4334x op_mode=2", (err) ->
+					return cb(err) if err?
+					wifi.openHotspot ssid, passphrase, (err) ->
+						return cb(err) if err?
+						# Add wlan0 to the bridge because connman has a bug.
+						exec "brctl addif tether wlan0", cb
+
+		closeHotspot = (err) ->
+			wifi.closeHotspot (err) ->
+				exec "modprobe -r bcm4334x", (err) ->
+					return cb(err) if err?
+					exec "modprobe bcm4334x", cb
+
 		throw err if err?
 		console.log("WiFi initialized")
 
