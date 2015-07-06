@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y \
 	libdbus-1-dev \
 	libexpat-dev \
 	nano \
-	connman
+	connman \
+	bridge-utils
 
 COPY . /app
 
