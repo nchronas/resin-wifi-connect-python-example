@@ -98,10 +98,8 @@ connman.init (err) ->
 								process.exit()
 
 		if !properties.connected
-			console.log("Trying to join wifi")
-			wifi.joinFavorite (err) ->
-				if err
-					startServer(wifi)
+			console.log("Not connected, starting AP")
+			startServer(wifi)
 		else
 			console.log("Already connected")
 			process.exit()
