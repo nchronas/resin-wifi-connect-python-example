@@ -37,19 +37,6 @@ iptablesRules = ->
 	]
 
 
-startServer = (wifi) ->
-	wifi.getNetworks (err, list) ->
-		throw err if err?
-		ssidList = list
-		openHotspot ssid, passphrase, (err) ->
-			throw err if err?
-			console.log("Hotspot enabled")
-			iptables.appendMany iptablesRules(), (err) ->
-				throw err if err?
-				console.log("Captive portal enabled")
-				server = app.listen port, ->
-					console.log("Server listening")
-
 console.log("Starting node connman app")
 connman.init (err) ->
 	throw err if err?
@@ -72,6 +59,19 @@ connman.init (err) ->
 				exec "modprobe -r bcm4334x", (err) ->
 					return cb(err) if err?
 					exec "modprobe bcm4334x", cb
+
+		startServer = (wifi) ->
+			wifi.getNetworks (err, list) ->
+				throw err if err?
+				ssidList = list
+				openHotspot ssid, passphrase, (err) ->
+					throw err if err?
+					console.log("Hotspot enabled")
+					iptables.appendMany iptablesRules(), (err) ->
+						throw err if err?
+						console.log("Captive portal enabled")
+						server = app.listen port, ->
+							console.log("Server listening")
 
 		throw err if err?
 		console.log("WiFi initialized")
