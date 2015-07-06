@@ -15,6 +15,7 @@
     "coffee-script": "^1.9.3",
     "connman-simplified": "git+https://github.com/pcarranzav/connman-simplified.git",
     "express": "^4.13.0",
+    "lodash": "^3.10.0",
     "netfilter": "^0.3.1"
   }
 }

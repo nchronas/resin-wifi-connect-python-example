@@ -2,6 +2,7 @@ connman = require('connman-simplified')()
 express = require('express')
 app = express()
 bodyParser = require('body-parser')
+_ = require('lodash')
 iptables = require('./iptables')
 
 exec = require('child_process').exec
@@ -45,20 +46,20 @@ connman.init (err) ->
 		openHotspot = (ssid, passphrase, cb) ->
 			# Reload bcm4334x with op_mode=2, the trick for 
 			# tethering to work on Edison
-			exec "modprobe -r bcm4334x", (err) ->
+			_.delay exec, 500, "modprobe -r bcm4334x", (err) ->
 				return cb(err) if err?
-				exec "modprobe bcm4334x op_mode=2", (err) ->
+				_.delay exec, 500, "modprobe bcm4334x op_mode=2", (err) ->
 					return cb(err) if err?
-					wifi.openHotspot ssid, passphrase, (err) ->
+					_.delay wifi.openHotspot, 1000, ssid, passphrase, (err) ->
 						return cb(err) if err?
 						# Add wlan0 to the bridge because connman has a bug.
 						exec "brctl addif tether wlan0", cb
 
 		closeHotspot = (err) ->
 			wifi.closeHotspot (err) ->
-				exec "modprobe -r bcm4334x", (err) ->
+				_.delay exec, 500, "modprobe -r bcm4334x", (err) ->
 					return cb(err) if err?
-					exec "modprobe bcm4334x", cb
+					_.delay exec, 500, "modprobe bcm4334x", cb
 
 		startServer = (wifi) ->
 			wifi.getNetworks (err, list) ->
@@ -90,7 +91,7 @@ connman.init (err) ->
 						closeHotspot (err) ->
 							throw err if err?
 							console.log("Server closed and captive portal disabled")
-							wifi.joinWithAgent req.body.ssid, req.body.passphrase, (err) ->
+							_.delay wifi.joinWithAgent, 1000, req.body.ssid, req.body.passphrase, (err) ->
 								console.log(err) if err
 								return startServer(wifi) if err
 								console.log("Joined! Exiting.")
