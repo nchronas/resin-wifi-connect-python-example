@@ -51,7 +51,11 @@ getIptablesRules = (callback) ->
 
 startServer = (wifi) ->
 	console.log('Getting networks list')
-	wifi.getNetworksAsync().then (list) ->
+	wifi.getNetworksAsync()
+	.catch (err) ->
+		throw err unless err.message == 'No WiFi networks found'
+		return []
+	.then (list) ->
 		ssidList = list
 		wifi.openHotspotAsync(ssid, passphrase)
 	.then ->
@@ -81,7 +85,8 @@ saveToFile = (ssid, passphrase) ->
 	connectionsFromFile.push({ ssid, passphrase })
 	fs.openAsync(connectionFile, 'w')
 	.tap (fd) ->
-		fs.writeAsync(fd, JSON.stringify(connectionsFromFile))
+		buf = new Buffer(JSON.stringify(connectionsFromFile))
+		fs.writeAsync(fd, buf, 0, buf.length, null)
 	.tap (fd) ->
 		fs.fsyncAsync(fd)
 	.then (fd) ->
@@ -128,8 +133,12 @@ manageConnection = (retryCallback) ->
 		app.use (req, res) ->
 			res.redirect('/')
 
-		# Create TETHER iptables chain (will silently fail if it already exists)
-		iptables.createChainAsync('nat', 'TETHER')
+		# Ensure tethering is disabled before starting
+		wifi.closeHotspotAsync()
+		.catch(ignore)
+		.then ->
+			# Create TETHER iptables chain (will silently fail if it already exists)
+			iptables.createChainAsync('nat', 'TETHER')
 		.catch(ignore)
 		.then ->
 			iptables.deleteAsync({ table: 'nat', rule: 'PREROUTING -i tether -j TETHER'})
@@ -138,13 +147,7 @@ manageConnection = (retryCallback) ->
 			iptables.flushAsync('nat', 'TETHER')
 		.then ->
 			if !properties.connected
-				console.log('Trying to join wifi')
-				wifi.joinFavoriteAsync()
-				.then ->
-					console.log('Joined! Exiting.')
-					retryCallback()
-				.catch (err) ->
-					connectOrStartServer(wifi, retryCallback)
+				connectOrStartServer(wifi, retryCallback)
 			else
 				console.log('Already connected')
 				retryCallback()
