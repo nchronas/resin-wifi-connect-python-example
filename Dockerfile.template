@@ -1,4 +1,7 @@
-FROM resin/%%RESIN_ARCH%%-node:0.10.38
+FROM resin/%%RESIN_MACHINE_NAME%%-node:0.10.38
+
+#switch on systemd init system in container
+ENV INITSYSTEM on
 
 # Note we added the python dependencies after resin-wifi-connect's deps.
 RUN apt-get update && apt-get install -y \
@@ -37,6 +40,7 @@ RUN chmod +x ./start
 VOLUME /var/lib/connman
 
 # Here we add the pip Flask package
-RUN pip install flask
+ADD ./requirements.txt /requirements.txt
+RUN pip install -r /requirements.txt
 
 CMD ./start
